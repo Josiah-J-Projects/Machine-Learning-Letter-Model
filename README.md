@@ -4,10 +4,10 @@
 
 This project was built on the [notMNIST dataset](http://yaroslavvb.blogspot.com/2011/09/notmnist-dataset.html).
 
-The model was built and trained in Python using TensorFlow and Keras, then converted to TensorFlow.js for browser deployment.
+The model was built and trained in Python using TensorFlow and Keras, then converted to TensorFlow.js to deploy on the browser.
 
 **Training Details**
-| | Accuracy |
+| Data | Accuracy |
 |---|---|
 | Training | 98.9% |
 | Test | 95.3% |
