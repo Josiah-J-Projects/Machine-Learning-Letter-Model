@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Letter Recognition — notMNIST A–J</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #C3D1FF;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .card {
+      background: transparent;
+      border-radius: 14px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+    }
+
+    .heading {
+    font-weight: 600;
+    color: #010221;
+    margin: 0;
+    text-align: center;
+    font-size: clamp(0.9rem, 3.5vw, 1.4rem);
+    width: 100%;
+
+    
+    text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px  1px 0 #000,
+        1px  1px 0 #000;
+    }       
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid #000;
+      background: #fff;
+    }
+
+    #canvas, #debug {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: block;
+    }
+    #debug {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      image-rendering: pixelated;
+    }
+    #debug.visible { opacity: 1; }
+    #canvas.hidden { opacity: 0; pointer-events: none; }
+    #canvas { touch-action: none; }
+
+    .btn-row { display: flex; gap: 0.6rem; }
+
+    .btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.65rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.2px;
+    }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: #010221;
+      color: #ffffff;
+      border: 2px solid #1C243B;
+      flex: 1;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+
+    .btn-ghost {
+      background: #ffffff;
+      color: #1C243B;
+      border: 2px solid #1C243B;
+    }
+    .btn-ghost:hover { background: rgba(28,36,59,0.06); }
+
+    .result-box {
+      background: #1C243B;
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .result-label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,0.45);
+    }
+
+    .best-block { display: flex; flex-direction: column; gap: 0.2rem; }
+
+    .best-letter {
+      font-size: 2.8rem;
+      font-weight: 700;
+      color: #010221;
+      line-height: 1;
+      background: #ffffff;
+      display: inline-block;
+      padding: 0.1rem 0.5rem;
+      border-radius: 4px;
+      align-self: flex-start;
+      margin-top: 0.25rem;
+    }
+
+    .best-conf {
+      font-size: 0.85rem;
+      font-weight: 400;
+      color: rgba(255,255,255,0.7);
+      margin-top: 0.35rem;
+    }
+
+    .placeholder {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.4);
+      margin: auto 0;
+    }
+
+    #top3View { display: none; flex-direction: column; gap: 0.55rem; }
+
+    .bar-row { display: flex; align-items: center; gap: 0.6rem; }
+    .bar-letter { font-size: 0.85rem; font-weight: 600; width: 14px; color: #fff; }
+    .bar-track { flex: 1; height: 8px; background: rgba(255,255,255,0.15); border-radius: 99px; overflow: hidden; }
+    .bar-fill { height: 100%; background: #010221; border-radius: 99px; width: 0%; transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+    .bar-pct { font-size: 0.72rem; color: rgba(255,255,255,0.55); width: 38px; text-align: right; }
+
+    .toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff; 
+    border: 1px solid #010221;
+    border-radius: 6px;
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #010221;
+    width: 100%;
+    transition: background 0.2s, color 0.2s;
+    }
+    .toggle-btn:hover {
+    background: rgba(1, 2, 33, 0.05);
+    color: #ffffff;
+
+    text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px  1px 0 #000,
+        1px  1px 0 #000;
+    }
+    .toggle-btn.active { background: #1C243B; color: #fff; }
+
+    .loading-bar { height: 2px; background: #e5e7eb; border-radius: 99px; overflow: hidden; }
+    .loading-fill { height: 100%; background: #010221; animation: pulse 1.5s ease-in-out infinite; }
+    .status { font-size: 0.72rem; color: #9ca3af; text-align: center; }
+
+    @keyframes pulse {
+      0%   { width: 0%;  margin-left: 0%; }
+      50%  { width: 60%; margin-left: 20%; }
+      100% { width: 0%;  margin-left: 100%; }
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 0.5rem;
+      font-size: 0.72rem;
+      color: #9ca3af;
+    }
+    .footer a { color: #1C243B; font-weight: 500; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+
+  <p class="heading">Draw a letter between A and J</p>
+
+  <div id="loadingBar" class="loading-bar"><div class="loading-fill"></div></div>
+  <p id="status" class="status">Loading model…</p>
+
+  <div class="canvas-wrapper">
+    <canvas id="canvas" width="280" height="280"></canvas>
+    <canvas id="debug" width="28" height="28"></canvas>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="predict()">Guess Letter</button>
+    <button class="btn btn-ghost" onclick="clearCanvas()">Clear</button>
+  </div>
+
+  <div class="result-box" id="resultBox">
+    <span class="result-label" id="resultLabel">Result</span>
+    <div id="bestView"><p class="placeholder">Draw a letter above, then hit Guess.</p></div>
+    <div id="top3View"><p class="placeholder">No prediction yet.</p></div>
+  </div>
+
+  <button class="toggle-btn" id="toggleBtn" onclick="toggleView()">
+    <span id="toggleLabel">See what the AI sees</span>
+  </button>
+
+  <p class="footer">
+    <a href="https://github.com/josiah-j-projects/Machine-Learning-Letter-Model" target="_blank"> This model</a> was trained on the notMNIST dataset.
+  </p>
+
+</div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const debugCanvas = document.getElementById('debug');
+  const letters = ['A','B','C','D','E','F','G','H','I','J'];
+  let drawing = false, showingAI = false, lastPrediction = null, model = null;
+
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, 280, 280);
+
+  function getPos(e, rect) {
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  }
+  function scalePos(pos, rect) {
+    return { x: pos.x * (280 / rect.width), y: pos.y * (280 / rect.height) };
+  }
+
+  canvas.addEventListener('mousedown', e => {
+    drawing = true;
+    const p = scalePos(getPos(e, canvas.getBoundingClientRect()), canvas.getBoundingClientRect());
+    ctx.beginPath(); ctx.moveTo(p.x, p.y);
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (!drawing) return;
+    const p = scalePos(getPos(e, canvas.getBoundingClientRect()), canvas.getBoundingClientRect());
+    ctx.lineWidth = 18; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000';
+    ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x, p.y);
+  });
+  canvas.addEventListener('mouseup', () => drawing = false);
+  canvas.addEventListener('mouseleave', () => drawing = false);
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault(); drawing = true;
+    const p = scalePos(getPos(e, canvas.getBoundingClientRect()), canvas.getBoundingClientRect());
+    ctx.beginPath(); ctx.moveTo(p.x, p.y);
+  }, { passive: false });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault(); if (!drawing) return;
+    const p = scalePos(getPos(e, canvas.getBoundingClientRect()), canvas.getBoundingClientRect());
+    ctx.lineWidth = 18; ctx.lineCap = 'round'; ctx.strokeStyle = '#000';
+    ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x, p.y);
+  }, { passive: false });
+  canvas.addEventListener('touchend', e => { e.preventDefault(); drawing = false; }, { passive: false });
+
+  function clearCanvas() {
+    ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 280, 280);
+    lastPrediction = null;
+    document.getElementById('resultLabel').textContent = 'Result';
+    document.getElementById('bestView').innerHTML = '<p class="placeholder">Draw a letter above, then hit Guess.</p>';
+    document.getElementById('top3View').innerHTML = '<p class="placeholder">No prediction yet.</p>';
+    if (showingAI) toggleView();
+  }
+
+  tf.loadLayersModel('./model/model.json').then(m => {
+    model = m;
+    document.getElementById('loadingBar').style.display = 'none';
+    document.getElementById('status').textContent = 'Model ready ✓';
+    setTimeout(() => document.getElementById('status').style.display = 'none', 2000);
+  }).catch(() => { document.getElementById('status').textContent = 'Failed to load model.'; });
+
+  async function predict() {
+    if (!model) return alert('Model still loading, please wait.');
+    const tmp = document.createElement('canvas'); tmp.width = 28; tmp.height = 28;
+    const tCtx = tmp.getContext('2d');
+    tCtx.fillStyle = 'white'; tCtx.fillRect(0, 0, 28, 28);
+    tCtx.drawImage(canvas, 0, 0, 28, 28);
+
+    const imgData = tCtx.getImageData(0, 0, 28, 28);
+    for (let i = 0; i < imgData.data.length; i += 4) {
+      const inv = 255 - imgData.data[i];
+      imgData.data[i] = imgData.data[i+1] = imgData.data[i+2] = inv;
+    }
+    debugCanvas.getContext('2d').putImageData(imgData, 0, 0);
+
+    const tensor = tf.tidy(() => {
+      let img = tf.browser.fromPixels(tmp, 1);
+      img = tf.scalar(255).sub(img).squeeze().div(tf.scalar(255));
+      return img.reshape([1, 28, 28, 1]);
+    });
+    const pred = await model.predict(tensor).data();
+    tensor.dispose();
+
+    lastPrediction = [...pred].map((p, i) => ({ letter: letters[i], prob: p })).sort((a, b) => b.prob - a.prob);
+    render();
+  }
+
+  function render() {
+    if (!lastPrediction) return;
+    showingAI ? showTop3() : showBest();
+  }
+
+  function showBest() {
+    document.getElementById('top3View').style.display = 'none';
+    const bv = document.getElementById('bestView');
+    bv.style.display = 'flex';
+    document.getElementById('resultLabel').textContent = 'Best Guess';
+    if (!lastPrediction) return;
+    const b = lastPrediction[0];
+    bv.innerHTML = `
+      <div class="best-block">
+        <div class="best-letter">${b.letter}</div>
+        <div class="best-conf">${(b.prob * 100).toFixed(1)}% Confident</div>
+      </div>`;
+  }
+
+  function showTop3() {
+    document.getElementById('bestView').style.display = 'none';
+    const t3 = document.getElementById('top3View');
+    t3.style.display = 'flex';
+    document.getElementById('resultLabel').textContent = 'Top 3 Guesses';
+    if (!lastPrediction) return;
+    t3.innerHTML = lastPrediction.slice(0, 3).map(x => `
+      <div class="bar-row">
+        <span class="bar-letter">${x.letter}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${(x.prob * 100).toFixed(1)}%"></div></div>
+        <span class="bar-pct">${(x.prob * 100).toFixed(1)}%</span>
+      </div>`).join('');
+  }
+
+  function toggleView() {
+    showingAI = !showingAI;
+    canvas.classList.toggle('hidden', showingAI);
+    debugCanvas.classList.toggle('visible', showingAI);
+    document.getElementById('toggleBtn').classList.toggle('active', showingAI);
+    document.getElementById('toggleLabel').textContent = showingAI ? 'Back to drawing' : 'See what the AI sees';
+    showingAI ? showTop3() : showBest();
+  }
+</script>
+
+</body>
+</html>
