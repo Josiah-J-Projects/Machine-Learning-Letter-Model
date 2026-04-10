@@ -1,10 +1,12 @@
-# AI Letter Recognizer
+# Machine Learning Letter Model
 
 ## Overview
 
 This project was built on the [notMNIST dataset](http://yaroslavvb.blogspot.com/2011/09/notmnist-dataset.html).
 
 The model was built and trained in Python using TensorFlow and Keras, then converted to TensorFlow.js to deploy on the browser.
+
+> An upgraded version supporting all 26 letters (A–Z) is available at **[AI Letter Recognizer](https://josiah-j-projects.github.io/AI-Letter-Recognizer/)**.
 
 **Training Details**
 | Data | Accuracy |
@@ -32,3 +34,6 @@ Visit **[josiah-j-projects.github.io/Machine-Learning-Letter-Model](https://josi
 | Browser Deployment | TensorFlow.js |
 | Frontend | HTML, CSS, JavaScript |
 | Dataset | notMNIST (A–J) |
+
+## Author
+**Josiah Jukes**
